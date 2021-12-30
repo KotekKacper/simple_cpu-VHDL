@@ -35,6 +35,12 @@ ARCHITECTURE Behavior OF proc IS
 					Q : BUFFER STD_LOGIC_VECTOR(n-1 DOWNTO 0));
 	END COMPONENT;
 	
+	COMPONENT mux3bit8to1  
+   PORT ( S: IN STD_LOGIC_VECTOR(5 DOWNTO 0);
+				U0, U1, U2, U3, U4, U5: IN     STD_LOGIC_VECTOR(15 DOWNTO 0);  
+				M                   : BUFFER    STD_LOGIC_VECTOR(15 DOWNTO 0));  
+	END COMPONENT;  
+	
 	-- declare signals
 		-- to control unit
 		SIGNAL Tstep_Q : STD_LOGIC_VECTOR(1 DOWNTO 0);
@@ -52,13 +58,14 @@ ARCHITECTURE Behavior OF proc IS
 		SIGNAL Ain: STD_LOGIC;
 		SIGNAL AddSubTrigger: STD_LOGIC;
 		SIGNAL Gin: STD_LOGIC;
-		SIGNAL R0: STD_LOGIC_VECTOR(15 DOWNTO 0);
-		SIGNAL R1: STD_LOGIC_VECTOR(15 DOWNTO 0);
-		SIGNAL R2: STD_LOGIC_VECTOR(15 DOWNTO 0);
-		SIGNAL R3: STD_LOGIC_VECTOR(15 DOWNTO 0);
-		SIGNAL A: STD_LOGIC_VECTOR(15 DOWNTO 0);
-		SIGNAL G: STD_LOGIC_VECTOR(15 DOWNTO 0);
-		SIGNAL AddSub: STD_LOGIC_VECTOR(15 DOWNTO 0);
+	SIGNAL BUSsig: STD_LOGIC_VECTOR(15 DOWNTO 0);
+	SIGNAL R0: STD_LOGIC_VECTOR(15 DOWNTO 0);
+	SIGNAL R1: STD_LOGIC_VECTOR(15 DOWNTO 0);
+	SIGNAL R2: STD_LOGIC_VECTOR(15 DOWNTO 0);
+	SIGNAL R3: STD_LOGIC_VECTOR(15 DOWNTO 0);
+	SIGNAL A: STD_LOGIC_VECTOR(15 DOWNTO 0);
+	SIGNAL G: STD_LOGIC_VECTOR(15 DOWNTO 0);
+	SIGNAL AddSub: STD_LOGIC_VECTOR(15 DOWNTO 0);
 	SIGNAL High: STD_LOGIC;
 
 
@@ -69,11 +76,18 @@ BEGIN
 	I <= IR(0 TO 1);
 	decX: dec2to4 PORT MAP (IR(2 TO 3), High, Xreg);
 	decY: dec2to4 PORT MAP (IR(4 TO 5), High, Yreg);
+
+	mux: mux3bit8to1 PORT MAP (Rout & DINout & Gout, R3, R2, R1, R0, DIN, G, Bussig);
+	--BusWires <= Rout & DINout & Gout & "0000000000";
+	
 	controlsignals: PROCESS (Tstep_Q, I, Xreg, Yreg)
 	BEGIN
 		-- specify initial values
 		Clear <= '0';
 		Done <= '0';
+		Rout <= "0000";
+		DINout <= '0';
+		Gout <= '0';
 		CASE Tstep_Q IS
 			WHEN "00" => -- store DIN in IR as long as Tstep_Q = 0
 				IRin <= '1';
@@ -83,10 +97,12 @@ BEGIN
 						Rout <= Yreg;
 						Rin <= Xreg;
 						Done <= '1';
+						Clear <= '1';
 					WHEN "01" =>
 						DINout <= '1';
 						Rin <= Xreg;
 						Done <= '1';
+						Clear <= '1';
 					WHEN "10" =>
 						Rout <= Xreg;
 						Ain <= '1';
@@ -125,20 +141,22 @@ BEGIN
 				END CASE;
 		END CASE;
 	END PROCESS;
+
+	
 	
 	-- instantiate registers and the adder/subtracter unit
-	reg_0: regn PORT MAP (BusWires, Rin(0), Clock, R0);
-	reg_1: regn PORT MAP (BusWires, Rin(1), Clock, R1);
-	reg_2: regn PORT MAP (BusWires, Rin(2), Clock, R2);
-	reg_3: regn PORT MAP (BusWires, Rin(3), Clock, R3);
+	reg_0: regn PORT MAP (BUSsig, Rin(0), Clock, R0);
+	reg_1: regn PORT MAP (BUSsig, Rin(1), Clock, R1);
+	reg_2: regn PORT MAP (BUSsig, Rin(2), Clock, R2);
+	reg_3: regn PORT MAP (BUSsig, Rin(3), Clock, R3);
 	
-	acm: regn PORT MAP (BusWires, Ain, Clock, A);
+	acm: regn PORT MAP (BUSsig, Ain, Clock, A);
 	-- AddSub to add
-	AddSub <= "0000000000000000";
+	AddSub <= "0001000000001000";
 	res: regn PORT MAP (AddSub, Gin, Clock, G);
 	
-	-- define the bus
-	--bus_line: -- ???
+	-- Bus declaration
+	BusWires <= BUSsig;
 
 END Behavior;
 
@@ -184,10 +202,10 @@ BEGIN
 	BEGIN
 		IF En = '1' THEN
 			CASE W IS
-				WHEN "00" => Y <= "1000";
-				WHEN "01" => Y <= "0100";
-				WHEN "10" => Y <= "0010";
-				WHEN "11" => Y <= "0001";
+				WHEN "00" => Y <= "0001";
+				WHEN "01" => Y <= "0010";
+				WHEN "10" => Y <= "0100";
+				WHEN "11" => Y <= "1000";
 			END CASE;
 		ELSE
 			Y <= "0000";
@@ -218,6 +236,7 @@ BEGIN
 	END PROCESS;
 END Behavior;
 
+
 LIBRARY ieee;
 USE ieee.std_logic_1164.all;
 
@@ -239,4 +258,26 @@ BEGIN
 		END IF;
 	END PROCESS;
 END Behavior;
+
+
+library ieee;
+use ieee.std_logic_1164.all;
+
+ENTITY mux3bit8to1 IS  
+   PORT ( S: IN STD_LOGIC_VECTOR(5 DOWNTO 0);
+				U0, U1, U2, U3, U4, U5: IN     STD_LOGIC_VECTOR(15 DOWNTO 0);  
+				M                   : BUFFER    STD_LOGIC_VECTOR(15 DOWNTO 0));
+END mux3bit8to1;
+
+ARCHITECTURE Behavior OF mux3bit8to1 IS  
+BEGIN 
+		with S select
+		M <=  U0 when "100000",
+				U1 when "010000",
+				U2 when "001000",
+				U3 when "000100",
+				U4 when "000010",
+				U5 when "000001",
+				"0000000000000000" when others;
+END Behavior; 
 
