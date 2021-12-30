@@ -39,7 +39,15 @@ ARCHITECTURE Behavior OF proc IS
    PORT ( S: IN STD_LOGIC_VECTOR(5 DOWNTO 0);
 				U0, U1, U2, U3, U4, U5: IN     STD_LOGIC_VECTOR(15 DOWNTO 0);  
 				M                   : BUFFER    STD_LOGIC_VECTOR(15 DOWNTO 0));  
-	END COMPONENT;  
+	END COMPONENT;
+	
+	COMPONENT ALU IS
+   PORT(X			: IN  std_logic_vector(15 DOWNTO 0);
+        Y			: IN  std_logic_vector(15 DOWNTO 0);
+        operation : IN  std_logic;
+        result    : OUT std_logic_vector (15 DOWNTO 0));        
+	END COMPONENT;
+
 	
 	-- declare signals
 		-- to control unit
@@ -85,13 +93,16 @@ BEGIN
 		-- specify initial values
 		Clear <= '0';
 		Done <= '0';
+		Rin <= "0000";
 		Rout <= "0000";
 		DINout <= '0';
 		Gout <= '0';
+		AddSubTrigger <= '0';
 		CASE Tstep_Q IS
 			WHEN "00" => -- store DIN in IR as long as Tstep_Q = 0
 				IRin <= '1';
 			WHEN "01" => -- define signals in time step T1
+				IRin <= '0';
 				CASE I IS
 					WHEN "00" =>
 						Rout <= Yreg;
@@ -111,6 +122,9 @@ BEGIN
 						Ain <= '1';
 				END CASE;
 			WHEN "10" => -- define signals in time step T2
+				IRin <= '0';
+				Ain <= '0';
+				Rout <= "0000";
 				CASE I IS
 					WHEN "00" =>
 						Clear <= '1';
@@ -125,6 +139,10 @@ BEGIN
 						AddSubTrigger <= '1';
 				END CASE;
 			WHEN "11" => -- define signals in time step T3
+				IRin <= '0';
+				Gin <= '0';
+				Rout <= "0000";
+				AddSubTrigger <= '0';
 				CASE I IS
 					WHEN "00" =>
 						Clear <= '1';
@@ -151,8 +169,7 @@ BEGIN
 	reg_3: regn PORT MAP (BUSsig, Rin(3), Clock, R3);
 	
 	acm: regn PORT MAP (BUSsig, Ain, Clock, A);
-	-- AddSub to add
-	AddSub <= "0001000000001000";
+	as: ALU PORT MAP (A, BUSsig, AddSubTrigger, AddSub);
 	res: regn PORT MAP (AddSub, Gin, Clock, G);
 	
 	-- Bus declaration
@@ -278,6 +295,22 @@ BEGIN
 				U3 when "000100",
 				U4 when "000010",
 				U5 when "000001",
-				"0000000000000000" when others;
+				S & "0000000000" when others;
 END Behavior; 
 
+
+LIBRARY IEEE;
+USE ieee.std_logic_1164.ALL;
+USE ieee.std_logic_signed.ALL;
+
+ENTITY ALU IS
+   PORT(X			: IN  std_logic_vector(15 DOWNTO 0);
+        Y			: IN  std_logic_vector(15 DOWNTO 0);
+        operation : IN  std_logic;
+        result    : OUT std_logic_vector (15 DOWNTO 0));        
+END ALU;
+
+ARCHITECTURE Behavior OF ALU IS
+BEGIN
+    result <= (X + Y) WHEN (operation = '0') ELSE (X - Y);
+END Behavior;
