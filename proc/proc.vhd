@@ -98,65 +98,72 @@ BEGIN
 		DINout <= '0';
 		Gout <= '0';
 		AddSubTrigger <= '0';
-		CASE Tstep_Q IS
-			WHEN "00" => -- store DIN in IR as long as Tstep_Q = 0
-				IRin <= '1';
-			WHEN "01" => -- define signals in time step T1
-				IRin <= '0';
-				CASE I IS
-					WHEN "00" =>
-						Rout <= Yreg;
-						Rin <= Xreg;
-						Done <= '1';
-						Clear <= '1';
-					WHEN "01" =>
-						DINout <= '1';
-						Rin <= Xreg;
-						Done <= '1';
-						Clear <= '1';
-					WHEN "10" =>
-						Rout <= Xreg;
-						Ain <= '1';
-					WHEN "11" =>
-						Rout <= Xreg;
-						Ain <= '1';
+		CASE Resetn IS
+			WHEN '1' =>
+				CASE Tstep_Q IS
+					WHEN "00" => -- store DIN in IR as long as Tstep_Q = 0
+						IF Run = '1' THEN
+							IRin <= '1';
+						END IF;
+					WHEN "01" => -- define signals in time step T1
+						IRin <= '0';
+						CASE I IS
+							WHEN "00" =>
+								Rout <= Yreg;
+								Rin <= Xreg;
+								Done <= '1';
+								Clear <= '1';
+							WHEN "01" =>
+								DINout <= '1';
+								Rin <= Xreg;
+								Done <= '1';
+								Clear <= '1';
+							WHEN "10" =>
+								Rout <= Xreg;
+								Ain <= '1';
+							WHEN "11" =>
+								Rout <= Xreg;
+								Ain <= '1';
+						END CASE;
+					WHEN "10" => -- define signals in time step T2
+						IRin <= '0';
+						Ain <= '0';
+						Rout <= "0000";
+						CASE I IS
+							WHEN "00" =>
+								Clear <= '1';
+							WHEN "01" =>
+								Clear <= '1';
+							WHEN "10" =>
+								Rout <= Yreg;
+								Gin <= '1';
+							WHEN "11" =>
+								Rout <= Yreg;
+								Gin <= '1';
+								AddSubTrigger <= '1';
+						END CASE;
+					WHEN "11" => -- define signals in time step T3
+						IRin <= '0';
+						Gin <= '0';
+						Rout <= "0000";
+						AddSubTrigger <= '0';
+						CASE I IS
+							WHEN "00" =>
+								Clear <= '1';
+							WHEN "01" =>
+								Clear <= '1';
+							WHEN "10" =>
+								Gout <= '1';
+								Rin <= Xreg;
+								Done <= '1';
+							WHEN "11" =>
+								Gout <= '1';
+								Rin <= Xreg;
+								Done <= '1';
+						END CASE;
 				END CASE;
-			WHEN "10" => -- define signals in time step T2
-				IRin <= '0';
-				Ain <= '0';
-				Rout <= "0000";
-				CASE I IS
-					WHEN "00" =>
-						Clear <= '1';
-					WHEN "01" =>
-						Clear <= '1';
-					WHEN "10" =>
-						Rout <= Yreg;
-						Gin <= '1';
-					WHEN "11" =>
-						Rout <= Yreg;
-						Gin <= '1';
-						AddSubTrigger <= '1';
-				END CASE;
-			WHEN "11" => -- define signals in time step T3
-				IRin <= '0';
-				Gin <= '0';
-				Rout <= "0000";
-				AddSubTrigger <= '0';
-				CASE I IS
-					WHEN "00" =>
-						Clear <= '1';
-					WHEN "01" =>
-						Clear <= '1';
-					WHEN "10" =>
-						Gout <= '1';
-						Rin <= Xreg;
-						Done <= '1';
-					WHEN "11" =>
-						Gout <= '1';
-						Rin <= Xreg;
-						Done <= '1';
-				END CASE;
+			WHEN '0' =>
+				Clear <= '1';
 		END CASE;
 	END PROCESS;
 
